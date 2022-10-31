@@ -5,8 +5,8 @@ var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 var cors = require("cors");
 
-const hostname = "127.0.0.1";
-const port = 3001;
+//const hostname = "127.0.0.1";
+//const port = 3001;
 var app = express();
 
 var indexRouter = require('./routes/index');
@@ -54,9 +54,7 @@ app.use(function (err, req, res, next) {
 });
 
 // Run the server
-app.listen(port, () => {
-    console.log(`Express app listening at http://${hostname}:${port}/`);
-});
+app.listen(3000, () => console.log("Listening on port 3000!"));
 
 module.exports = app;
 
