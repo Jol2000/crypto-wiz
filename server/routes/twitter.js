@@ -1,0 +1,100 @@
+var Twitter = require('twitter');
+
+// Twitter API details
+const apikey = 'Nx9RNz8vGYBzgcXbsc8o2VVv0';
+const apiKeySecret = 'h8X7bZGUleKz91IMNOzoseWzmukAUgngAPfkYKLFyoueDs6FlW';
+const bearerToken = 'AAAAAAAAAAAAAAAAAAAAAHc5igEAAAAA6ZIzp38UQjJOneSXw9OxpIizSCA%3Dnajk468GUcC1a5iOqNagt5JzKmu3fuGKfx6L5kQXlynlPibXl3';
+
+var client = new Twitter({
+  consumer_key: apikey,
+  consumer_secret: apiKeySecret,
+  bearer_token: bearerToken
+});
+
+function userDetails(tweet) {
+  return { tweet_id: tweet.id, tweet_text: tweet.text, tweet_url: tweet.entities.urls[0]?.url, user: tweet.user.screen_name, user_profile_img: tweet.user.profile_image_url_https, created_at: tweet.created_at }
+}
+
+// create and object from a query string
+function paramsToObject(entries) {
+  const result = {}
+  for (const [key, value] of entries) { // each 'entry' is a [key, value] tupple
+    result[key] = value;
+  }
+  return result;
+}
+
+module.exports = {
+  /**
+   * Gets tweets
+   * @param  {} queryString Twitter queryString
+   */
+  getTweets: function (queryString) {
+    return new Promise((resolve, reject) => {
+      // turn querystring into an object
+      const urlParams = new URLSearchParams(queryString);
+      const ent = urlParams.entries()
+      const objectParams = paramsToObject(ent)
+
+      client.get('search/tweets', objectParams, function (error, tweets, response) {
+        if (!error) {
+          const newTweets = { tweets: tweets.statuses.map(userDetails), search_metadata: tweets.search_metadata }
+          console.log("New Tweets Incoming!!") 
+          return resolve(newTweets)
+        } else {
+          return reject(error);
+        }
+      })
+    })
+  },
+
+  /**
+   * Recursively gets all tweets
+   * @param  {} queryString Twitter queryString
+   * @param  {} newResults Empty array for collecting new tweets
+   * @param  {} limit used to limit amount of recursive tweets
+   */
+  getAllTweets: function (queryString, newResults, limit) {
+    // Get tweets from helper function
+    return this.getTweets(queryString).then((data) => {
+      // add newly returned tweets into newResults
+      data.tweets.forEach((tweet) => {
+        newResults.push(tweet)
+      })
+      if (newResults.length >= limit) {
+        return newResults;
+      } else {
+        // take the next_results querystring and recursively calls it
+        let newQuerysting = data.search_metadata.next_results
+        return this.getAllTweets(newQuerysting, newResults, 500);
+      }
+    })
+  },
+
+  /**
+   * Recursively gets all recent tweets
+   * @param  {} queryString Twitter queryString
+   * @param  {} newResults Empty array for collecting new tweets
+   */
+  getAllSinceTweets: function(queryString, newResults) {
+    // Get tweets from helper function
+    return this.getTweets(queryString).then((data) => {
+      // add newly returned tweets into newResults
+      data.tweets.forEach((tweet) => {
+        newResults.push(tweet)
+      })
+      // twitter only allows max 100 tweets at a time
+      // if less than 100 there is no more tweets @ current time, so just return
+      // if greater > 100 - function will call again
+      // more efficient than data.tweets.length == 0
+      if (data.tweets.length < 99) {
+        return newResults;
+      } else {
+        // take the refresh_url querystring and recursively calls it
+        // uses since_id to get the most recent twitter posts
+        let newQuerysting = data.search_metadata.refresh_url + '&count=100'
+        return this.getAllSinceTweets(newQuerysting, newResults);
+      }
+    })
+  }
+}
